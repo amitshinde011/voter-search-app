@@ -1,18 +1,26 @@
-npm error code ERESOLVE
-npm error ERESOLVE unable to resolve dependency tree
-npm error
-npm error While resolving: voter-search-app@1.0.0
-npm error Found: react-native@0.76.5
-npm error node_modules/react-native
-npm error   react-native@"0.76.5" from the root project
-npm error
-npm error Could not resolve dependency:
-npm error peer react-native@"^0.41.2 || ^0.57.0 || ^0.68.0 || ^0.70.0" from react-native-ping@1.2.8  
-npm error node_modules/react-native-ping
-npm error   peer react-native-ping@"*" from react-native-thermal-receipt-printer-image-qr@0.1.12     
-npm error   node_modules/react-native-thermal-receipt-printer-image-qr
-npm error     react-native-thermal-receipt-printer-image-qr@"^0.1.12" from the root project
-npm error
-npm error Fix the upstream dependency conflict, or retry
-npm error this command with --force or --legacy-peer-deps
-npm error to accept an incorrect (and potentially broken) dependency resolution.
+Unable to resolve asset "./assets/icon.png" from "icon" in your app.json or app.config.js
+Android Bundling failed 8545ms node_modules\expo-router\entry.js (1207 modules)
+Unable to resolve "expo-linking" from "node_modules\expo-router\build\views\Unmatched.js"
+   8 | exports.Unmatched = Unmatched;
+   9 | const native_1 = require("@react-navigation/native");
+> 10 | const expo_linking_1 = require("expo-linking");
+     |                                 ^
+  11 | const react_1 = __importDefault(require("react"));
+  12 | const react_native_1 = require("react-native");
+  13 | const hooks_1 = require("../hooks");
+
+Import stack:
+
+ node_modules\expo-router\build\views\Unmatched.js
+ | import "expo-linking"
+
+ node_modules\expo-router\build\exports.js
+ | import "./views/Unmatched"
+
+ node_modules\expo-router\build\index.js
+ | import "./exports"
+
+ app\_layout.tsx
+ | import "expo-router"
+
+ app (require.context)
