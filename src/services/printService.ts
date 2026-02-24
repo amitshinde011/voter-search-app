@@ -3,17 +3,20 @@ import { Alert, PermissionsAndroid, Platform } from 'react-native';
 import type { Voter, BluetoothDevice } from '../types/voter';
 
 // ============================================================
-// Bluetooth ESC/POS Direct Printing (requires dev build)
+// Bluetooth BLE Direct Printing (requires dev build)
+// Uses react-native-thermal-receipt-printer-image-qr
 // ============================================================
 
-let BluetoothManager: any = null;
-let BluetoothEscposPrinter: any = null;
+let BLEPrinter: any = null;
+let COMMANDS: any = null;
+let ColumnAlignment: any = null;
 let bluetoothAvailable = false;
 
 try {
-  const btModule = require('react-native-bluetooth-escpos-printer');
-  BluetoothManager = btModule.BluetoothManager;
-  BluetoothEscposPrinter = btModule.BluetoothEscposPrinter;
+  const btModule = require('react-native-thermal-receipt-printer-image-qr');
+  BLEPrinter = btModule.BLEPrinter;
+  COMMANDS = btModule.COMMANDS;
+  ColumnAlignment = btModule.ColumnAlignment;
   bluetoothAvailable = true;
 } catch (e) {
   // Bluetooth module not available (running in Expo Go)
@@ -50,9 +53,9 @@ export async function requestBluetoothPermissions(): Promise<boolean> {
   }
 }
 
-/** Enable Bluetooth and return paired devices */
+/** Initialize BLE and return available devices */
 export async function enableBluetooth(): Promise<BluetoothDevice[]> {
-  if (!bluetoothAvailable || !BluetoothManager) {
+  if (!bluetoothAvailable || !BLEPrinter) {
     throw new Error('Bluetooth module not available. Use a dev build.');
   }
 
@@ -61,62 +64,47 @@ export async function enableBluetooth(): Promise<BluetoothDevice[]> {
     throw new Error('Bluetooth permissions not granted');
   }
 
-  const pairedStr = await BluetoothManager.enableBluetooth();
-  const paired: Array<{ name: string; address: string }> = JSON.parse(pairedStr);
-  return paired.map((d) => ({ name: d.name || 'Unknown', address: d.address }));
+  await BLEPrinter.init();
+  const deviceList = await BLEPrinter.getDeviceList();
+  return (deviceList || []).map((d: any) => ({
+    name: d.device_name || d.name || 'Unknown',
+    address: d.inner_mac_address || d.address || '',
+  }));
 }
 
-/** Scan for nearby Bluetooth devices */
+/** Scan for nearby BLE devices (same as enableBluetooth for this library) */
 export async function scanBluetoothDevices(): Promise<BluetoothDevice[]> {
-  if (!bluetoothAvailable || !BluetoothManager) {
+  if (!bluetoothAvailable || !BLEPrinter) {
     throw new Error('Bluetooth module not available');
   }
 
-  return new Promise((resolve, reject) => {
-    BluetoothManager.scanDevices()
-      .then((s: string) => {
-        const data = JSON.parse(s);
-        const found: BluetoothDevice[] = (data.found || []).map((d: any) => ({
-          name: d.name || 'Unknown',
-          address: d.address,
-        }));
-        const paired: BluetoothDevice[] = (data.paired || []).map((d: any) => ({
-          name: d.name || 'Unknown',
-          address: d.address,
-        }));
-        resolve([...paired, ...found]);
-      })
-      .catch(reject);
-  });
+  const deviceList = await BLEPrinter.getDeviceList();
+  return (deviceList || []).map((d: any) => ({
+    name: d.device_name || d.name || 'Unknown',
+    address: d.inner_mac_address || d.address || '',
+  }));
 }
 
 /** Connect to a Bluetooth printer */
 export async function connectBluetoothPrinter(address: string): Promise<void> {
-  if (!bluetoothAvailable || !BluetoothManager) {
+  if (!bluetoothAvailable || !BLEPrinter) {
     throw new Error('Bluetooth module not available');
   }
-  await BluetoothManager.connect(address);
+  await BLEPrinter.connectPrinter(address);
 }
 
-/** Print voter slip via Bluetooth ESC/POS */
+/** Print voter slip via BLE thermal printer */
 export async function printVoterBluetoothDirect(voter: Voter): Promise<void> {
-  if (!bluetoothAvailable || !BluetoothEscposPrinter) {
+  if (!bluetoothAvailable || !BLEPrinter) {
     throw new Error('Bluetooth module not available');
   }
 
+  const BOLD_ON = COMMANDS?.TEXT_FORMAT?.TXT_BOLD_ON || '';
+  const BOLD_OFF = COMMANDS?.TEXT_FORMAT?.TXT_BOLD_OFF || '';
+  const CENTER = COMMANDS?.TEXT_FORMAT?.TXT_ALIGN_CT || '';
+  const LEFT = COMMANDS?.TEXT_FORMAT?.TXT_ALIGN_LT || '';
   const SEPARATOR = '================================\n';
   const THIN_SEP = '--------------------------------\n';
-
-  await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
-  await BluetoothEscposPrinter.printText(SEPARATOR, {});
-  await BluetoothEscposPrinter.printText('VOTER INFORMATION\n', {
-    widthtimes: 1,
-    heigthtimes: 1,
-  });
-  await BluetoothEscposPrinter.printText(`Voter Slip / मतदार स्लिप\n`, {});
-  await BluetoothEscposPrinter.printText(SEPARATOR, {});
-
-  await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.LEFT);
 
   const fields: Array<[string, string]> = [
     ['Ward / प्रभाग', voter.ward],
@@ -144,17 +132,25 @@ export async function printVoterBluetoothDirect(voter: Voter): Promise<void> {
     ['Assembly / विधानसभा', voter.assembly_no],
   ];
 
+  let receiptText = '';
+  receiptText += `${CENTER}${BOLD_ON}${SEPARATOR}`;
+  receiptText += `${CENTER}${BOLD_ON}VOTER INFORMATION\n`;
+  receiptText += `${CENTER}Voter Slip / मतदार स्लिप\n`;
+  receiptText += `${CENTER}${SEPARATOR}${BOLD_OFF}`;
+  receiptText += `${LEFT}`;
+
   for (const [label, value] of fields) {
     if (value && value.trim()) {
-      await BluetoothEscposPrinter.printText(`${label}:\n`, { fonttype: 1 });
-      await BluetoothEscposPrinter.printText(`  ${value}\n`, {});
-      await BluetoothEscposPrinter.printText(THIN_SEP, {});
+      receiptText += `${BOLD_ON}${label}:${BOLD_OFF}\n`;
+      receiptText += `  ${value}\n`;
+      receiptText += `${THIN_SEP}`;
     }
   }
 
-  await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
-  await BluetoothEscposPrinter.printText(SEPARATOR, {});
-  await BluetoothEscposPrinter.printText('\n\n\n', {}); // Feed paper
+  receiptText += `${CENTER}${SEPARATOR}`;
+  receiptText += '\n\n\n'; // Feed paper
+
+  BLEPrinter.printBill(receiptText);
 }
 
 // ============================================================
