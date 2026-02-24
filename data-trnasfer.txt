@@ -1,0 +1,7 @@
+PS C:\Workspace\voter-search-app\voter-search-app> npm install        
+npm error code ETARGET
+npm error notarget No matching version found for react-native-bluetooth-escpos-printer@^2.3.0.
+npm error notarget In most cases you or one of your dependencies are requesting
+npm error notarget a package version that doesn't exist.
+npm error A complete log of this run can be found in: C:\Users\amits\AppData\Local\npm-cache\_logs\2026-02-24T10_13_01_724Z-debug-0.log      
+PS C:\Workspace\voter-search-app\voter-search-app> 
